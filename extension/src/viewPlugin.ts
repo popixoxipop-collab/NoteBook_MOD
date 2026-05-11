@@ -16,17 +16,42 @@ export interface ModuleEntry {
 const FUNC_PATTERN      = /^(\s*)(def|class)\s+(\w+)/;
 const WRITEFILE_PATTERN = /^%%writefile\s+(\S+)/;
 
-/** 함수/클래스 블록의 마지막 줄 인덱스 반환 */
+/** 줄 텍스트를 스캔하며 트리플쿼트 상태를 토글 */
+function scanTripleQuotes(text: string, state: { d: boolean; s: boolean }): void {
+  let i = 0;
+  while (i < text.length) {
+    const ch3 = text.slice(i, i + 3);
+    if (!state.d && !state.s) {
+      if (ch3 === '"""') { state.d = true;  i += 3; continue; }
+      if (ch3 === "'''") { state.s = true;  i += 3; continue; }
+    } else if (state.d && ch3 === '"""') { state.d = false; i += 3; continue; }
+      else if (state.s && ch3 === "'''") { state.s = false; i += 3; continue; }
+    i++;
+  }
+}
+
+/** 함수/클래스 블록의 마지막 줄 인덱스 반환 (트리플쿼트 내부 줄 포함) */
 function findBlockEnd(doc: Text, startLine: number): number {
   const baseIndent = (doc.line(startLine).text.match(/^(\s*)/) ?? ['', ''])[1].length;
   let last = startLine;
+  const qs = { d: false, s: false };          // """ / ''' 상태 추적
+
+  scanTripleQuotes(doc.line(startLine).text, qs);
+
   for (let i = startLine + 1; i <= doc.lines; i++) {
     const txt = doc.line(i).text;
-    if (txt.trim() === '') continue;
-    const indent = (txt.match(/^(\s*)/) ?? ['', ''])[1].length;
-    if (indent <= baseIndent) break;
+    const inTriple = qs.d || qs.s;
+
+    if (!inTriple) {
+      if (txt.trim() === '') continue;
+      const indent = (txt.match(/^(\s*)/) ?? ['', ''])[1].length;
+      if (indent <= baseIndent) break;        // 실제 블록 종료
+    }
+    // 트리플쿼트 내부는 들여쓰기 무관하게 블록에 포함
     last = i;
+    scanTripleQuotes(txt, qs);
   }
+
   return last;
 }
 
