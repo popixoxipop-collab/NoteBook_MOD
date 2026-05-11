@@ -14,35 +14,37 @@ export interface InferredModule {
  * 우선순위: 명시적 규칙 → 접두사 패턴 → 기본값
  */
 export function inferFilePath(funcName: string, isClass: boolean): string {
-  const lower = funcName.toLowerCase();
+  // 파일명용: 선행 _ 제거 (private helper는 모듈명에 _ 불필요)
+  const fileName = funcName.replace(/^_+/, '');
+  const lower    = funcName.toLowerCase();
 
   if (isClass) {
     if (/state$/i.test(funcName))   return 'state.py';
     if (/config$/i.test(funcName))  return 'config.py';
     if (/schema$/i.test(funcName))  return 'schema.py';
-    return `models/${funcName}.py`;
+    return `models/${fileName}.py`;
   }
 
   // 에이전트 노드
-  if (/_node$/.test(lower))  return `agents/${funcName}.py`;
-  if (/_agent$/.test(lower)) return `agents/${funcName}.py`;
+  if (/_node$/.test(lower))  return `agents/${fileName}.py`;
+  if (/_agent$/.test(lower)) return `agents/${fileName}.py`;
 
   // 그래프 / 라우팅
-  if (/^build_/.test(lower))   return `graph/${funcName}.py`;
-  if (/^route_/.test(lower))   return `graph/${funcName}.py`;
-  if (/^compile_/.test(lower)) return `graph/${funcName}.py`;
-  if (/^create_graph/.test(lower)) return `graph/${funcName}.py`;
+  if (/^_?build_/.test(lower))      return `graph/${fileName}.py`;
+  if (/^_?route_/.test(lower))      return `graph/${fileName}.py`;
+  if (/^_?compile_/.test(lower))    return `graph/${fileName}.py`;
+  if (/^_?create_graph/.test(lower)) return `graph/${fileName}.py`;
 
   // 데이터베이스
-  if (/^init_db/.test(lower))  return `db/${funcName}.py`;
-  if (/^save_/.test(lower))    return `db/${funcName}.py`;
-  if (/^(get|fetch)_.*db/.test(lower)) return `db/${funcName}.py`;
+  if (/^_?init_db/.test(lower))             return `db/${fileName}.py`;
+  if (/^_?save_/.test(lower))               return `db/${fileName}.py`;
+  if (/^_?(get|fetch)_.*db/.test(lower))    return `db/${fileName}.py`;
 
   // 유틸리티 / 로더
-  if (/^(_?load|get|read|fetch)_/.test(lower)) return `utils/${funcName}.py`;
-  if (/^(setup|configure)_/.test(lower))       return `utils/${funcName}.py`;
+  if (/^_?(load|get|read|fetch)_/.test(lower)) return `utils/${fileName}.py`;
+  if (/^_?(setup|configure)_/.test(lower))     return `utils/${fileName}.py`;
 
-  return `${funcName}.py`;
+  return `${fileName}.py`;
 }
 
 const FUNC_PATTERN      = /^(\s*)(def|class)\s+(\w+)/;
