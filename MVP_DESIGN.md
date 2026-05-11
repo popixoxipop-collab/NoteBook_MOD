@@ -187,7 +187,97 @@ import json, re
 
 ---
 
-## 6. 시스템 아키텍처
+## 6. 핵심 UX — 노트북 인라인 모듈 뷰어 (JupyterLab Extension)
+
+### 개념
+
+모듈화 후 노트북에서 함수 코드가 사라지는 대신,
+**압축된 인라인 뱃지**로 대체된다. Python IDE의 hover docstring과 동일한 UX.
+
+### 셀 표현 변화
+
+```
+[Before — 모듈화 전]                [After — 모듈화 후]
+
+def analyzer_node(state):     →     def 📄 analyzer_node
+    review = state["review"]             ↑ 박스/뱃지로 처리된 함수명
+    system_prompt = """...               (본문 30줄 숨김)
+    messages = [...]
+    response = llm.invoke(...)
+    return {"analyzer_result": result}
+```
+
+### 인터랙션 상세
+
+| 동작 | 결과 |
+|---|---|
+| **기본 상태** | `def 📄 analyzer_node` — 파일 아이콘 + 함수명만 표시 |
+| **마우스 호버** | 원본 함수 코드 전체가 툴팁/팝오버로 표시 (syntax highlight 포함) |
+| **클릭** | 연결된 `analyzer_node.py` 파일이 JupyterLab 우측 패널에서 열림 |
+| **더블클릭** | 뱃지가 풀리며 노트북 셀에 코드 인라인 전개 (일반 셀처럼 편집 가능) |
+
+### 시각적 표현
+
+```
+┌─ 셀 [5] ─────────────────────────────────────────┐
+│                                                   │
+│  def ┌─────────────────┐                          │
+│      │ 📄 analyzer_node│  ← 클릭/호버 가능한 뱃지 │
+│      └─────────────────┘                          │
+│                                                   │
+│  def ┌──────────────┐                             │
+│      │ 📄 critic_node│                            │
+│      └──────────────┘                             │
+└───────────────────────────────────────────────────┘
+
+             ↓ analyzer_node 호버 시
+
+┌─────────────────────────────────────────────┐
+│ 📄 agents/analyzer_node.py                  │
+│─────────────────────────────────────────────│
+│ def analyzer_node(state: ReviewState):      │
+│     review = state["review"]                │
+│     system_prompt = """...ABSA 전문가..."""  │
+│     messages = [SystemMessage(...), ...]    │
+│     response = llm.invoke(messages)         │
+│     return {"analyzer_result": result}      │
+└─────────────────────────────────────────────┘
+```
+
+### 구현 방식 — JupyterLab Extension
+
+```
+JupyterLab Extension (TypeScript)
+  │
+  ├── CodeMirror 커스텀 데코레이터
+  │     def/class 키워드 다음 함수명 감지
+  │     → 뱃지 렌더링으로 교체
+  │
+  ├── Hover 핸들러
+  │     연결된 .py 파일 읽어서 팝오버 렌더링
+  │     (CodeMirror syntax highlight 적용)
+  │
+  ├── Click 핸들러
+  │     JupyterLab 파일 브라우저 API로 해당 .py 파일 오픈
+  │     → 우측 split panel에서 열림
+  │
+  └── 메타데이터 연동
+        셀 metadata에 {"modularized": true, "file": "agents/analyzer_node.py"}
+        저장 → 노트북 재오픈 시에도 뱃지 유지
+```
+
+### 참조 UX
+
+| 레퍼런스 | 유사한 기능 |
+|---|---|
+| VS Code Peek Definition (Alt+F12) | hover 시 코드 미리보기 |
+| Python IDE 내장함수 docstring 툴팁 | str.split 위 마우스 → 시그니처+설명 팝업 |
+| JupyterLab Completer | 자동완성 팝오버 UI 패턴 |
+| GitHub Code Navigation | 클릭 → 정의로 이동 |
+
+---
+
+## 7. 시스템 아키텍처
 
 ```
 [사용자 브라우저]
