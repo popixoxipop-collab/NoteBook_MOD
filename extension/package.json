@@ -1,0 +1,35 @@
+{
+  "name": "notebook-mod",
+  "version": "0.1.0",
+  "description": "Inline module viewer for modularized Jupyter notebooks",
+  "keywords": ["jupyter", "jupyterlab", "jupyterlab-extension"],
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "style": "style/index.css",
+  "files": ["lib", "style", "schema", "install.json"],
+  "jupyterlab": {
+    "extension": true,
+    "outputDir": "notebook_mod/labextension",
+    "schemaDir": "schema"
+  },
+  "scripts": {
+    "build": "jlpm run build:lib && jlpm run build:labextension:dev",
+    "build:lib": "tsc --sourceMap",
+    "build:labextension:dev": "jupyter labextension develop --overwrite .",
+    "watch": "tsc -w"
+  },
+  "dependencies": {
+    "@jupyterlab/application": "^4.0.0",
+    "@jupyterlab/notebook": "^4.0.0",
+    "@jupyterlab/docmanager": "^4.0.0",
+    "@jupyterlab/codeeditor": "^4.0.0",
+    "@codemirror/view": "^6.0.0",
+    "@codemirror/state": "^6.0.0",
+    "@codemirror/language": "^6.0.0",
+    "@lezer/highlight": "^1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "~5.0.0",
+    "@types/react": "^18.0.0"
+  }
+}

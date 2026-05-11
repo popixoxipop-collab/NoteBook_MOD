@@ -1,0 +1,121 @@
+/* ── 인라인 뱃지 ─────────────────────────────────────────── */
+
+.nbmod-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px 1px 5px;
+  margin: 0 2px;
+  border: 1.5px solid var(--jp-brand-color1, #1976d2);
+  border-radius: 4px;
+  background: var(--jp-layout-color1, #fff);
+  color: var(--jp-brand-color1, #1976d2);
+  font-family: var(--jp-code-font-family, monospace);
+  font-size: 0.88em;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s, box-shadow 0.15s;
+  vertical-align: middle;
+}
+
+.nbmod-badge:hover {
+  background: var(--jp-brand-color3, #bbdefb);
+  box-shadow: 0 1px 4px rgba(25, 118, 210, 0.25);
+}
+
+.nbmod-badge__icon {
+  font-size: 0.95em;
+  line-height: 1;
+}
+
+.nbmod-badge__label {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.nbmod-badge__hint {
+  font-size: 0.78em;
+  color: var(--jp-ui-font-color2, #888);
+  margin-left: 2px;
+}
+
+/* ── 툴팁 ────────────────────────────────────────────────── */
+
+.nbmod-tooltip {
+  position: absolute;
+  z-index: 9999;
+  min-width: 340px;
+  max-width: 600px;
+  max-height: 420px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--jp-border-color1, #ccc);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  background: var(--jp-layout-color0, #fff);
+  overflow: hidden;
+  font-family: var(--jp-code-font-family, monospace);
+  font-size: 0.85em;
+  animation: nbmod-fade-in 0.12s ease;
+}
+
+@keyframes nbmod-fade-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.nbmod-tooltip__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--jp-layout-color2, #f5f5f5);
+  border-bottom: 1px solid var(--jp-border-color1, #ddd);
+  font-size: 0.82em;
+  color: var(--jp-ui-font-color2, #555);
+}
+
+.nbmod-tooltip__icon {
+  font-size: 1em;
+}
+
+.nbmod-tooltip__path {
+  font-weight: 500;
+  color: var(--jp-brand-color1, #1976d2);
+}
+
+.nbmod-tooltip__code {
+  flex: 1;
+  overflow: auto;
+  margin: 0;
+  padding: 10px 14px;
+  background: var(--jp-layout-color0, #fff);
+  color: var(--jp-content-font-color0, #212121);
+  font-size: 0.9em;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.nbmod-tooltip__footer {
+  padding: 4px 10px;
+  background: var(--jp-layout-color2, #f5f5f5);
+  border-top: 1px solid var(--jp-border-color1, #ddd);
+  font-size: 0.75em;
+  color: var(--jp-ui-font-color3, #aaa);
+  text-align: center;
+}
+
+/* 다크 테마 대응 */
+[data-jp-theme-light="false"] .nbmod-badge {
+  background: var(--jp-layout-color2, #2b2b2b);
+}
+
+[data-jp-theme-light="false"] .nbmod-tooltip {
+  background: var(--jp-layout-color1, #1e1e1e);
+  border-color: var(--jp-border-color0, #444);
+}
+
+[data-jp-theme-light="false"] .nbmod-tooltip__code {
+  background: var(--jp-layout-color1, #1e1e1e);
+  color: #d4d4d4;
+}
