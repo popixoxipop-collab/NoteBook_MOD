@@ -1,0 +1,5 @@
+extension/node_modules/
+extension/.yarn/cache/
+extension/lib/
+extension/notebook_mod/labextension/static/
+extension/test_output_with_meta.ipynb
