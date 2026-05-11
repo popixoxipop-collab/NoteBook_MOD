@@ -1,4 +1,5 @@
 import { Cell } from '@jupyterlab/cells';
+// @jupyterlab/cells는 @jupyterlab/notebook의 peer dep으로 포함됨
 import { ModuleEntry } from './viewPlugin';
 
 /** 셀 metadata 키 */

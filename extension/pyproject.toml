@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling>=1.5.0", "jupyterlab>=4.0.0,<5"]
+build-backend = "hatchling.build"
+
+[project]
+name = "notebook_mod"
+version = "0.1.0"
+description = "Inline module viewer for modularized Jupyter notebooks"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = ["jupyterlab>=4.0.0,<5"]
+
+[tool.hatch.build.targets.wheel]
+artifacts = ["notebook_mod/labextension"]
+
+[tool.hatch.build.hooks.jupyter-builder]
+dependencies = ["hatch-jupyter-builder>=0.5"]
+build-function = "hatch_jupyter_builder.npm_builder"
+ensured-targets = ["notebook_mod/labextension/package.json"]
+skip-if-exists  = ["notebook_mod/labextension/package.json"]
+
+[tool.hatch.build.hooks.jupyter-builder.build-kwargs]
+build_cmd = "build:prod"
+npm       = ["jlpm"]
+
+[tool.jupyter-releaser.options]
+version-cmd = "hatch version"

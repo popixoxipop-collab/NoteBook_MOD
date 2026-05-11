@@ -2,14 +2,16 @@
   "compilerOptions": {
     "target": "ES2017",
     "module": "commonjs",
-    "lib": ["ES2017", "DOM"],
+    "lib": ["ES2021", "DOM"],
     "strict": true,
     "outDir": "lib",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
     "esModuleInterop": true,
-    "jsx": "react"
+    "jsx": "react",
+    "skipLibCheck": true,
+    "lib": ["ES2021", "DOM"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules"]

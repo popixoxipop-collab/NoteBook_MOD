@@ -35,16 +35,16 @@ export function makeModuleViewPlugin(
       decorations: DecorationSet;
 
       constructor(view: EditorView) {
-        this.decorations = this._buildDecorations(view);
+        this.decorations = this.buildDecorations(view);
       }
 
       update(update: ViewUpdate) {
         if (update.docChanged || update.viewportChanged) {
-          this.decorations = this._buildDecorations(update.view);
+          this.decorations = this.buildDecorations(update.view);
         }
       }
 
-      private _buildDecorations(view: EditorView): DecorationSet {
+      buildDecorations(view: EditorView): DecorationSet {
         const builder = new RangeSetBuilder<Decoration>();
         const doc     = view.state.doc;
 
@@ -59,7 +59,7 @@ export function makeModuleViewPlugin(
 
             if (entry) {
               // 함수 블록 끝 줄 탐색 (들여쓰기 기준)
-              const blockEnd = this._findBlockEnd(doc, lineIdx);
+              const blockEnd = this.findBlockEnd(doc, lineIdx);
               const from     = line.from;
               const to       = doc.line(blockEnd).to;
 
@@ -96,7 +96,7 @@ export function makeModuleViewPlugin(
        * 들여쓰기 기준으로 함수/클래스 블록의 마지막 줄 번호 반환.
        * 첫 줄의 들여쓰기 이상인 줄이 계속되면 블록 내부로 판단.
        */
-      private _findBlockEnd(doc: any, startLine: number): number {
+      findBlockEnd(doc: any, startLine: number): number {
         const firstLine   = doc.line(startLine);
         const baseIndent  = firstLine.text.match(/^(\s*)/)?.[1].length ?? 0;
         let   lastBlock   = startLine;

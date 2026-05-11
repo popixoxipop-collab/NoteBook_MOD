@@ -8,8 +8,8 @@
 import json
 import copy
 
-NOTEBOOK_PATH = "../../Downloads/Step1_상품리뷰분석_Agent_1_완성.ipynb"
-OUTPUT_PATH   = "test_output_with_meta.ipynb"
+NOTEBOOK_PATH = "/Users/xox/Downloads/Step1_상품리뷰분석_Agent_1_완성.ipynb"
+OUTPUT_PATH   = "/Users/xox/Desktop/NoteBook_MOD/extension/test_output_with_meta.ipynb"
 
 # 서비스가 자동 생성하는 모듈 정보 (백엔드 분석 결과 예시)
 MOCK_MODULES = {
