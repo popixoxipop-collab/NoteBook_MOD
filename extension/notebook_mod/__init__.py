@@ -22,9 +22,19 @@ def _jupyter_server_extension_points():
 
 
 def _load_jupyter_server_extension(server_app):
-    from .handlers import AnalyzeHandler
-    web_app      = server_app.web_app
-    base_url     = web_app.settings.get("base_url", "/")
-    route        = url_path_join(base_url, "notebook-mod", "analyze")
-    web_app.add_handlers(".*$", [(route, AnalyzeHandler)])
-    server_app.log.info(f"[NoteBook_MOD] analyze endpoint: {route}")
+    from .handlers import AnalyzeHandler, StateHandler, CategoryHandler
+    web_app  = server_app.web_app
+    base_url = web_app.settings.get("base_url", "/")
+
+    analyze_route    = url_path_join(base_url, "notebook-mod", "analyze")
+    state_route      = url_path_join(base_url, "notebook-mod", "state")
+    categories_route = url_path_join(base_url, "notebook-mod", "categories")
+
+    web_app.add_handlers(".*$", [
+        (analyze_route,    AnalyzeHandler),
+        (state_route,      StateHandler),
+        (categories_route, CategoryHandler),
+    ])
+    server_app.log.info(f"[NoteBook_MOD] analyze endpoint:    {analyze_route}")
+    server_app.log.info(f"[NoteBook_MOD] state endpoint:      {state_route}")
+    server_app.log.info(f"[NoteBook_MOD] categories endpoint: {categories_route}")

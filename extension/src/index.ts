@@ -13,6 +13,17 @@ import { PageConfig } from '@jupyterlab/coreutils';
 import { makeModuleStateField, expandFunction, ModuleEntry } from './viewPlugin';
 import { inferFilePath } from './algorithm';
 import { readMeta } from './metadata';
+import {
+  loadState,
+  confirmMapping,
+  correctMapping,
+  getBaseUrl,
+  ConfirmedMapping,
+} from './stateStore';
+import {
+  CorrectionDropdown,
+  positionDropdownBelow,
+} from './correctionWidget';
 
 import '../style/index.css';
 
@@ -47,35 +58,79 @@ function collectFunctions(panel: NotebookPanel): FuncInfo[] {
   return result;
 }
 
-// ── 백엔드 RAG 분석 호출 ────────────────────────────────
-async function fetchModuleMapping(
-  panel: NotebookPanel
-): Promise<Map<string, string>> {
-  const funcs = collectFunctions(panel);
-  if (funcs.length === 0) return new Map();
-
-  const baseUrl = PageConfig.getBaseUrl();
-  try {
-    const res = await fetch(`${baseUrl}notebook-mod/analyze`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json',
-                 'X-XSRFToken': getCookie('_xsrf') ?? '' },
-      body: JSON.stringify({ functions: funcs, threshold: 0.95 }),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const mapping: Record<string, string> = await res.json();
-    console.log('[NoteBook_MOD] RAG 매핑 수신:', mapping);
-    return new Map(Object.entries(mapping));
-  } catch (e) {
-    console.warn('[NoteBook_MOD] 백엔드 연결 실패, 규칙 기반 폴백:', e);
-    // 폴백: 규칙 기반으로 직접 생성
-    const fallback = new Map<string, string>();
-    funcs.forEach(f => fallback.set(f.funcName, inferFilePath(f.funcName, f.isClass)));
-    return fallback;
-  }
+// ── 백엔드 응답 타입 ────────────────────────────────────
+interface AnalyzeResponseEntry {
+  path: string;
+  source: 'llm' | 'human';
+  confidence: number;
 }
 
-function getCookie(name: string): string | null {
+type AnalyzeResponse = Record<string, AnalyzeResponseEntry | string>;
+
+// ── 백엔드 RAG 분석 호출 (state-aware) ─────────────────
+async function fetchModuleMapping(
+  panel: NotebookPanel
+): Promise<Map<string, ConfirmedMapping>> {
+  const funcs = collectFunctions(panel);
+  const merged = new Map<string, ConfirmedMapping>();
+  if (funcs.length === 0) return merged;
+
+  const baseUrl = getBaseUrl();
+
+  // 1) Pull confirmed mappings from backend state.
+  const state = await loadState(baseUrl);
+  for (const [fn, entry] of state.mappings.entries()) {
+    merged.set(fn, entry);
+  }
+
+  // 2) Find functions still needing LLM/RAG analysis.
+  const unresolved = funcs.filter((f) => !merged.has(f.funcName));
+  if (unresolved.length === 0) return merged;
+
+  // 3) Ask backend to analyze the remainder.
+  try {
+    const res = await fetch(`${baseUrl}/analyze`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-XSRFToken': getCookie('_xsrf') ?? '',
+      },
+      body: JSON.stringify({ functions: unresolved, threshold: 0.95 }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const mapping: AnalyzeResponse = await res.json();
+    console.log('[NoteBook_MOD] RAG 매핑 수신:', mapping);
+
+    for (const [funcName, raw] of Object.entries(mapping)) {
+      if (typeof raw === 'string') {
+        // Backwards-compatible: string path only.
+        merged.set(funcName, { path: raw, source: 'llm', confidence: 0.5 });
+      } else if (raw && typeof raw === 'object') {
+        merged.set(funcName, {
+          path: raw.path,
+          source: raw.source ?? 'llm',
+          confidence: typeof raw.confidence === 'number' ? raw.confidence : 0.5,
+        });
+      }
+    }
+  } catch (e) {
+    console.warn('[NoteBook_MOD] 백엔드 연결 실패, 규칙 기반 폴백:', e);
+    // Fallback: rule-based path inference, low confidence.
+    unresolved.forEach((f) => {
+      if (!merged.has(f.funcName)) {
+        merged.set(f.funcName, {
+          path: inferFilePath(f.funcName, f.isClass),
+          source: 'llm',
+          confidence: 0.3,
+        });
+      }
+    });
+  }
+
+  return merged;
+}
+
+export function getCookie(name: string): string | null {
   const m = document.cookie.match(new RegExp(`(?:^|;)\\s*${name}=([^;]*)`));
   return m ? decodeURIComponent(m[1]) : null;
 }
@@ -83,7 +138,7 @@ function getCookie(name: string): string | null {
 // ── Plugin ───────────────────────────────────────────────
 const plugin: JupyterFrontEndPlugin<void> = {
   id: 'notebook-mod:plugin',
-  description: 'Auto modularization viewer — RAG-based similarity merging',
+  description: 'Auto modularization viewer — RAG + human-in-the-loop state',
   autoStart: true,
   requires: [INotebookTracker, IDocumentManager],
 
@@ -92,7 +147,7 @@ const plugin: JupyterFrontEndPlugin<void> = {
     tracker: INotebookTracker,
     docManager: IDocumentManager
   ) {
-    console.log('[NoteBook_MOD] activated ✅  (RAG + rule-based fallback)');
+    console.log('[NoteBook_MOD] activated ✅  (state-aware + correction UI)');
 
     tracker.widgetAdded.connect((_t, panel: NotebookPanel) => {
       panel.context.ready.then(() => {
@@ -109,7 +164,6 @@ const plugin: JupyterFrontEndPlugin<void> = {
 };
 
 async function _processPanel(panel: NotebookPanel, docManager: IDocumentManager) {
-  // 노트북 전체 함수 분석 → RAG 매핑 취득
   const moduleMap = await fetchModuleMapping(panel);
   _applyToAllCells(panel, docManager, moduleMap);
 }
@@ -117,7 +171,7 @@ async function _processPanel(panel: NotebookPanel, docManager: IDocumentManager)
 function _applyToAllCells(
   panel: NotebookPanel,
   docManager: IDocumentManager,
-  moduleMap: Map<string, string>
+  moduleMap: Map<string, ConfirmedMapping>
 ): void {
   panel.content.widgets.forEach((cell) => {
     if (!(cell instanceof CodeCell)) return;
@@ -126,7 +180,6 @@ function _applyToAllCells(
     const src = (cell as CodeCell).model.sharedModel.getSource();
     if (!/^\s*(def|class)\s/m.test(src)) return;
 
-    // 메타데이터 오버라이드 (있으면 우선)
     const meta      = readMeta(cell);
     const overrides: ModuleEntry[] = meta?.enabled ? meta.modules : [];
 
@@ -134,10 +187,38 @@ function _applyToAllCells(
   });
 }
 
+/** Re-style a badge DOM node based on the latest mapping metadata. */
+function styleBadge(
+  badgeEl: HTMLElement,
+  mapping: ConfirmedMapping
+): void {
+  badgeEl.classList.toggle(
+    'nbmod-uncertain',
+    mapping.confidence < 0.8 && mapping.source !== 'human'
+  );
+  badgeEl.classList.toggle('nbmod-confirmed', mapping.source === 'human');
+}
+
+function applyBadgeStyles(
+  root: HTMLElement,
+  moduleMap: Map<string, ConfirmedMapping>
+): void {
+  // Run on next frame so CodeMirror has rendered the widgets.
+  requestAnimationFrame(() => {
+    const badges = root.querySelectorAll<HTMLElement>('.nbmod-badge[data-func]');
+    badges.forEach((b) => {
+      const fn = b.getAttribute('data-func');
+      if (!fn) return;
+      const mapping = moduleMap.get(fn);
+      if (mapping) styleBadge(b, mapping);
+    });
+  });
+}
+
 function _inject(
   cell: CodeCell,
   overrides: ModuleEntry[],
-  moduleMap: Map<string, string>,
+  moduleMap: Map<string, ConfirmedMapping>,
   docManager: IDocumentManager
 ): void {
   const cmEditor   = cell.editor as unknown as CodeMirrorEditor;
@@ -146,24 +227,98 @@ function _inject(
 
   attached.add(cell);
 
+  const baseUrl = getBaseUrl();
+
+  /** Badge click handler — shows a correction dropdown anchored to the badge. */
   const onOpen = (filePath: string) => {
-    docManager.openOrReveal(filePath, 'default', undefined, { mode: 'split-right' });
+    // Find the badge element that was just clicked.
+    const badgeEl = document.activeElement instanceof HTMLElement
+      ? document.activeElement.closest<HTMLElement>('.nbmod-badge')
+      : null;
+    const anchor: HTMLElement =
+      badgeEl ?? findBadgeByPath(editorView.dom, filePath) ?? editorView.dom;
+
+    const funcName = anchor.getAttribute('data-func') ?? '';
+    const current  = moduleMap.get(funcName) ?? {
+      path: filePath,
+      source: 'llm' as const,
+      confidence: 0.5,
+    };
+
+    const dropdown = new CorrectionDropdown({
+      funcName,
+      currentPath: current.path,
+      source: current.source,
+      confidence: current.confidence,
+      onConfirm: async (p) => {
+        try {
+          await confirmMapping(baseUrl, funcName, p);
+          const next: ConfirmedMapping = {
+            path: p,
+            source: 'human',
+            confidence: 1.0,
+          };
+          moduleMap.set(funcName, next);
+          styleBadge(anchor, next);
+          // Also open the file after confirmation.
+          docManager.openOrReveal(p, 'default', undefined, { mode: 'split-right' });
+        } catch (e) {
+          console.error('[NoteBook_MOD] confirm 실패:', e);
+        }
+      },
+      onCorrect: async (newPath) => {
+        try {
+          await correctMapping(baseUrl, funcName, current.path, newPath);
+          const next: ConfirmedMapping = {
+            path: newPath,
+            source: 'human',
+            confidence: 1.0,
+          };
+          moduleMap.set(funcName, next);
+          styleBadge(anchor, next);
+          // Refresh badge label text in DOM.
+          const hint = anchor.querySelector<HTMLElement>('.nbmod-badge__hint');
+          if (hint) hint.textContent = ` · ${newPath}`;
+        } catch (e) {
+          console.error('[NoteBook_MOD] correct 실패:', e);
+        }
+      },
+    });
+
+    positionDropdownBelow(dropdown, anchor);
+    document.body.appendChild(dropdown.getElement());
   };
 
   const onExpand = (funcName: string, view: EditorView) => {
-    const entry = overrides.find(m => m.funcName === funcName);
+    const entry = overrides.find((m) => m.funcName === funcName);
     if (entry) expandFunction(funcName, entry.sourceCode, view);
   };
 
-  // overrides → 메타데이터 우선, 없으면 RAG 매핑, 없으면 규칙 기반
+  // overrides → 메타데이터 우선, 없으면 state/RAG 매핑
   const mergedOverrides: ModuleEntry[] = overrides.length > 0
     ? overrides
-    : [...moduleMap.entries()].map(([funcName, filePath]) => ({
-        funcName, filePath, sourceCode: '',
+    : [...moduleMap.entries()].map(([funcName, info]) => ({
+        funcName,
+        filePath: info.path,
+        sourceCode: '',
       }));
 
   const stateField = makeModuleStateField(mergedOverrides, onOpen, onExpand);
   editorView.dispatch({ effects: StateEffect.appendConfig.of(stateField) });
+
+  applyBadgeStyles(editorView.dom, moduleMap);
+}
+
+/** Locate a badge DOM whose hint contains the given path (fallback anchor). */
+function findBadgeByPath(root: HTMLElement, path: string): HTMLElement | null {
+  const badges = root.querySelectorAll<HTMLElement>('.nbmod-badge');
+  for (const b of Array.from(badges)) {
+    const hint = b.querySelector('.nbmod-badge__hint');
+    if (hint && hint.textContent && hint.textContent.includes(path)) {
+      return b;
+    }
+  }
+  return null;
 }
 
 export default plugin;

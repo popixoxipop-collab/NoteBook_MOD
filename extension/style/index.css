@@ -132,3 +132,60 @@
   background: var(--jp-layout-color1, #1e1e1e);
   color: #d4d4d4;
 }
+
+/* ── 신뢰도/확정 상태 인디케이터 ─────────────────────── */
+
+/* confidence 낮음 (< 0.8) */
+.nbmod-badge.nbmod-uncertain::after {
+  content: ' ⚠';
+  color: #f59e0b;
+}
+
+/* human 확정 */
+.nbmod-badge.nbmod-confirmed::before {
+  content: '✓ ';
+  color: #10b981;
+}
+
+/* ── correction dropdown ─────────────────────────────── */
+
+.nbmod-correction-dropdown {
+  position: absolute;
+  z-index: 1000;
+  background: var(--jp-layout-color1);
+  border: 1px solid var(--jp-border-color1);
+  border-radius: 4px;
+  padding: 8px;
+  min-width: 280px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.nbmod-correction-dropdown input {
+  width: 100%;
+  padding: 4px 6px;
+  margin: 4px 0;
+  border: 1px solid var(--jp-border-color1);
+  border-radius: 3px;
+  background: var(--jp-layout-color0);
+  color: var(--jp-ui-font-color1);
+  font-size: 12px;
+}
+
+.nbmod-correction-dropdown button {
+  padding: 3px 10px;
+  margin-right: 4px;
+  border-radius: 3px;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.nbmod-correction-dropdown .nbmod-btn-confirm {
+  background: #10b981;
+  color: white;
+}
+
+.nbmod-correction-dropdown .nbmod-btn-correct {
+  background: var(--jp-brand-color1);
+  color: white;
+}
