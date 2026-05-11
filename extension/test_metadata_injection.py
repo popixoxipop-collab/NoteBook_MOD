@@ -12,8 +12,107 @@ NOTEBOOK_PATH = "/Users/xox/Downloads/Step1_상품리뷰분석_Agent_1_완성.ip
 OUTPUT_PATH   = "/Users/xox/Desktop/NoteBook_MOD/extension/test_output_with_meta.ipynb"
 
 # 서비스가 자동 생성하는 모듈 정보 (백엔드 분석 결과 예시)
+def _read_app_py_source() -> str:
+    with open(NOTEBOOK_PATH, "r", encoding="utf-8") as f:
+        nb = json.load(f)
+    lines = ''.join(nb['cells'][52]['source']).split('\n')
+    return '\n'.join(lines[1:])  # %%writefile 첫 줄 제거
+
+
 MOCK_MODULES = {
     # 셀 인덱스 → 해당 셀의 모듈 목록
+    52: [  # %%writefile app.py 셀 — 내부 함수들을 각각 개별 뱃지로
+        {
+            "funcName": "_load_api_keys",
+            "filePath": "utils/load_api_keys.py",
+            "sourceCode": (
+                "def _load_api_keys(filepath):\n"
+                "    try:\n"
+                "        with open(filepath) as f:\n"
+                "            for line in f:\n"
+                "                line = line.strip()\n"
+                "                if line and '=' in line:\n"
+                "                    k, v = line.split('=', 1)\n"
+                "                    os.environ[k.strip()] = v.strip()\n"
+                "    except FileNotFoundError:\n"
+                "        pass\n"
+            ),
+        },
+        {
+            "funcName": "get_llm",
+            "filePath": "utils/get_llm.py",
+            "sourceCode": (
+                "@st.cache_resource\n"
+                "def get_llm():\n"
+                "    return ChatOpenAI(model='gpt-4.1-mini', temperature=0)\n"
+            ),
+        },
+        {
+            "funcName": "analyzer_node",
+            "filePath": "agents/analyzer_node.py",
+            "sourceCode": (
+                "def analyzer_node(state: ReviewState):\n"
+                "    # ABSA 분석 — agents/analyzer_node.py 참조\n"
+                "    ...\n"
+            ),
+        },
+        {
+            "funcName": "critic_node",
+            "filePath": "agents/critic_node.py",
+            "sourceCode": (
+                "def critic_node(state: ReviewState):\n"
+                "    # 결과 검증 — agents/critic_node.py 참조\n"
+                "    ...\n"
+            ),
+        },
+        {
+            "funcName": "supervisor_node",
+            "filePath": "agents/supervisor_node.py",
+            "sourceCode": (
+                "def supervisor_node(state: ReviewState):\n"
+                "    # 흐름 제어 — agents/supervisor_node.py 참조\n"
+                "    ...\n"
+            ),
+        },
+        {
+            "funcName": "route_next",
+            "filePath": "graph/route_next.py",
+            "sourceCode": (
+                "def route_next(state: ReviewState) -> str:\n"
+                "    return state.get('next_agent', 'end')\n"
+            ),
+        },
+        {
+            "funcName": "build_graph",
+            "filePath": "graph/builder.py",
+            "sourceCode": (
+                "@st.cache_resource\n"
+                "def build_graph():\n"
+                "    builder = StateGraph(ReviewState)\n"
+                "    # 그래프 조립 — graph/builder.py 참조\n"
+                "    return builder.compile()\n"
+            ),
+        },
+        {
+            "funcName": "init_db",
+            "filePath": "db/init_db.py",
+            "sourceCode": (
+                "def init_db():\n"
+                "    conn = sqlite3.connect(DB_PATH)\n"
+                "    # 테이블 생성 — db/init_db.py 참조\n"
+                "    conn.close()\n"
+            ),
+        },
+        {
+            "funcName": "save_result",
+            "filePath": "db/save_result.py",
+            "sourceCode": (
+                "def save_result(review: str, items: list) -> int:\n"
+                "    # DB INSERT — db/save_result.py 참조\n"
+                "    ...\n"
+            ),
+        },
+    ],
     28: [  # ReviewState 셀
         {
             "funcName": "ReviewState",
@@ -110,4 +209,6 @@ def inject_metadata(notebook_path: str, output_path: str) -> None:
 
 
 if __name__ == "__main__":
+    # %%writefile sourceCode 런타임 주입
+    MOCK_MODULES[52][0]["sourceCode"] = _read_app_py_source()
     inject_metadata(NOTEBOOK_PATH, OUTPUT_PATH)
