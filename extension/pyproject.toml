@@ -8,7 +8,13 @@ version = "0.1.0"
 description = "Inline module viewer for modularized Jupyter notebooks"
 readme = "README.md"
 requires-python = ">=3.8"
-dependencies = ["jupyterlab>=4.0.0,<5"]
+dependencies = [
+  "jupyterlab>=4.0.0,<5",
+  "jupyter-server>=2.0.0",
+  "scikit-learn>=1.0.0",
+  "numpy>=1.21.0",
+  "sentence-transformers>=2.0.0",
+]
 
 [tool.hatch.build.targets.wheel]
 artifacts = ["notebook_mod/labextension"]
