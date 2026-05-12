@@ -1,5 +1,5 @@
 extension/node_modules/
 extension/.yarn/cache/
 extension/lib/
-extension/notebook_mod/labextension/static/
+# labextension/static is committed — required for pip install (no npm build on user side)
 extension/test_output_with_meta.ipynb
