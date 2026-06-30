@@ -145,12 +145,22 @@ python -m graph_exporter.cli <레포 경로> --out graph_output
 **HTML 그래프 레이어 구조**
 
 ```
-[상단]  파일 노드         ← "어떤 파일들이 있는가"
-          │  contains
-[중간]  함수 / 클래스     ← "어떤 기능 단위가 있는가"  (클릭 → 소스코드)
-          │  imports (점선)
-[하단]  외부 의존성       ← "무엇에 의존하고 있는가"
+[최상단]  외부 의존성     ← "먼저 설치해야 하는 것" — 버전 표시 (🔶 주황 = 버전 명시)
+            ↑  imports (점선, 파일이 위를 향해 참조)
+[중간]    파일 노드       ← "어떤 파일들이 있는가"
+            ↓  contains
+[하단]    함수 / 클래스   ← "어떤 기능 단위가 있는가"  (클릭 → 소스코드)
 ```
+
+**버전 추출 지원 파일**
+
+| 파일 | 언어 |
+| --- | --- |
+| `requirements.txt` / `requirements-dev.txt` | Python |
+| `pyproject.toml` | Python (Poetry / PEP 621) |
+| `package.json` | JavaScript / TypeScript |
+| `pom.xml` | Java (Maven) |
+| `build.gradle` | Java (Gradle) |
 
 ---
 

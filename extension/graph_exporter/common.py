@@ -12,6 +12,7 @@ class GraphNode:
     file: str
     line: int = 0
     source_code: str = ""  # D2: embedded for click-to-view; WHY: self-contained HTML (no server); COST: HTML ~5-10× larger; EXIT: replace with fetch("/api/src?id=...") call
+    version: str = ""      # D4: version from manifest (requirements.txt/package.json/pom.xml); WHY: conflict detection at a glance; COST: best-effort match only; EXIT: replace with lockfile resolver
 
 
 @dataclass

@@ -12,6 +12,7 @@ from pathlib import Path
 from .common import DependencyGraph, GraphEdge
 from .parsers import PythonParser, JsParser, JavaParser, CParser
 from .exporters import ObsidianCanvasExporter, HtmlPreviewExporter
+from .version_resolver import annotate_graph
 
 PARSERS = [PythonParser(), JsParser(), JavaParser(), CParser()]
 SKIP_DIRS = {".git", "__pycache__", "node_modules", ".venv", "dist", "build", ".tox"}
@@ -71,6 +72,7 @@ def run() -> None:
     print(f"  pre-resolve:  {g.stats()}")
     resolve_calls(g)
     print(f"  post-resolve: {g.stats()}")
+    annotate_graph(g, root)
 
     canvas_path = out / "graph.canvas"
     html_path   = out / "graph.html"
