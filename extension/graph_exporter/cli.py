@@ -1,5 +1,9 @@
 """CLI entry point: scan a directory and export both Obsidian Canvas + HTML.
 
+Usage:
+  python -m graph_exporter.cli [root] [--out DIR]   # scan + export (default)
+  python -m graph_exporter.cli query "TERMS" [--out DIR] [-k N]  # search graph.json
+
 D1: post-scan call resolution
   WHY: Python parser emits calls edges as "{file}::{name}" (intra-file only).
        Cross-file calls miss unless we do a second pass mapping by symbol name.
@@ -13,6 +17,7 @@ from .common import DependencyGraph, GraphEdge
 from .parsers import PythonParser, JsParser, JavaParser, CParser
 from .exporters import ObsidianCanvasExporter, HtmlPreviewExporter
 from .version_resolver import annotate_graph
+from .query import search as graph_search
 
 PARSERS = [PythonParser(), JsParser(), JavaParser(), CParser()]
 SKIP_DIRS = {".git", "__pycache__", "node_modules", ".venv", "dist", "build", ".tox"}
@@ -57,7 +62,28 @@ def scan(root: Path) -> DependencyGraph:
     return g
 
 
+def _run_query(argv: list[str]) -> None:
+    ap = argparse.ArgumentParser(prog="graph_exporter query")
+    ap.add_argument("terms", nargs="+", help="search terms")
+    ap.add_argument("--out", default="graph_output", help="directory containing graph.json")
+    ap.add_argument("-k", "--top-k", type=int, default=20, help="max nodes to return")
+    args = ap.parse_args(argv)
+
+    graph_json = Path(args.out) / "graph.json"
+    if not graph_json.exists():
+        print(f"[error] {graph_json} not found — run scan first", file=sys.stderr)
+        sys.exit(1)
+
+    query = " ".join(args.terms)
+    print(graph_search(graph_json, query, top_k=args.top_k))
+
+
 def run() -> None:
+    # Dispatch: "query" as first arg → search mode; otherwise → scan+export (backward compat)
+    if len(sys.argv) > 1 and sys.argv[1] == "query":
+        _run_query(sys.argv[2:])
+        return
+
     ap = argparse.ArgumentParser(description="NoteBook_MOD dependency graph exporter")
     ap.add_argument("root", nargs="?", default=".", help="root directory to scan")
     ap.add_argument("--out", default="graph_output", help="output directory")
