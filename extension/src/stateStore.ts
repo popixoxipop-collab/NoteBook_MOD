@@ -76,10 +76,10 @@ export async function confirmMapping(
   funcName: string,
   path: string
 ): Promise<void> {
-  const res = await fetch(`${baseUrl}/confirm`, {
+  const res = await fetch(`${baseUrl}/state`, {
     method: 'POST',
     headers: jsonHeaders(),
-    body: JSON.stringify({ funcName, path }),
+    body: JSON.stringify({ funcName, path, action: 'confirm' }),
   });
   if (!res.ok) {
     throw new Error(`confirmMapping failed: HTTP ${res.status}`);
@@ -93,10 +93,10 @@ export async function correctMapping(
   fromPath: string,
   toPath: string
 ): Promise<void> {
-  const res = await fetch(`${baseUrl}/correct`, {
+  const res = await fetch(`${baseUrl}/state`, {
     method: 'POST',
     headers: jsonHeaders(),
-    body: JSON.stringify({ funcName, fromPath, toPath }),
+    body: JSON.stringify({ funcName, path: toPath, fromPath, action: 'correct' }),
   });
   if (!res.ok) {
     throw new Error(`correctMapping failed: HTTP ${res.status}`);
@@ -109,10 +109,10 @@ export async function addCategory(
   name: string,
   description: string
 ): Promise<void> {
-  const res = await fetch(`${baseUrl}/category`, {
+  const res = await fetch(`${baseUrl}/categories`, {
     method: 'POST',
     headers: jsonHeaders(),
-    body: JSON.stringify({ name, description }),
+    body: JSON.stringify({ name, description, action: 'add' }),
   });
   if (!res.ok) {
     throw new Error(`addCategory failed: HTTP ${res.status}`);
