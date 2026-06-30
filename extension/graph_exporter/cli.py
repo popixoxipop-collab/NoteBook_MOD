@@ -116,7 +116,7 @@ def run() -> None:
     }, indent=2, ensure_ascii=False))
 
     print(f"  → {canvas_path}  (Obsidian Canvas)")
-    print(f"  → {html_path}    (D3 HTML preview)")
+    print(f"  → {html_path}    (vis.js hierarchical HTML)")
     print(f"  → {json_path}    (raw JSON)")
 
 

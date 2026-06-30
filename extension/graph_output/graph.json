@@ -441,12 +441,22 @@
       "version": ""
     },
     {
+      "id": "import::search",
+      "label": "search",
+      "kind": "import",
+      "language": "python",
+      "file": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/cli.py",
+      "line": 0,
+      "source_code": "",
+      "version": ""
+    },
+    {
       "id": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/cli.py::resolve_calls",
       "label": "resolve_calls",
       "kind": "function",
       "language": "python",
       "file": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/cli.py",
-      "line": 21,
+      "line": 26,
       "source_code": "def resolve_calls(g: DependencyGraph) -> None:\n    \"\"\"Second pass: fix cross-file call edges that point to non-existent nodes.\"\"\"\n    node_ids = {n.id for n in g.nodes}\n    name_to_ids: dict[str, list[str]] = {}\n    for n in g.nodes:\n        if n.kind in (\"function\", \"class\"):\n            name_to_ids.setdefault(n.label, []).append(n.id)\n\n    resolved: list[GraphEdge] = []\n    for e in g.edges:\n        if e.kind == \"calls\" and e.target not in node_ids:\n            call_name = e.target.split(\"::\")[-1] if \"::\" in e.target else e.target\n            matches = name_to_ids.get(call_name, [])\n            for mid in matches:\n                if mid != e.source:  # skip self-loop\n                    resolved.append(GraphEdge(source=e.source, target=mid, kind=\"calls\"))\n        else:\n            resolved.append(e)\n    g.edges = resolved",
       "version": ""
     },
@@ -456,8 +466,18 @@
       "kind": "function",
       "language": "python",
       "file": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/cli.py",
-      "line": 42,
+      "line": 47,
       "source_code": "def scan(root: Path) -> DependencyGraph:\n    g = DependencyGraph()\n    for path in sorted(root.rglob(\"*\")):\n        if any(part in SKIP_DIRS for part in path.parts):\n            continue\n        if not path.is_file():\n            continue\n        for parser in PARSERS:\n            if parser.can_parse(path):\n                try:\n                    sub = parser.parse(path)\n                    g.merge(sub)\n                except Exception as e:\n                    print(f\"[warn] {path}: {e}\", file=sys.stderr)\n                break\n    return g",
+      "version": ""
+    },
+    {
+      "id": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/cli.py::_run_query",
+      "label": "_run_query",
+      "kind": "function",
+      "language": "python",
+      "file": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/cli.py",
+      "line": 65,
+      "source_code": "def _run_query(argv: list[str]) -> None:\n    ap = argparse.ArgumentParser(prog=\"graph_exporter query\")\n    ap.add_argument(\"terms\", nargs=\"+\", help=\"search terms\")\n    ap.add_argument(\"--out\", default=\"graph_output\", help=\"directory containing graph.json\")\n    ap.add_argument(\"-k\", \"--top-k\", type=int, default=20, help=\"max nodes to return\")\n    args = ap.parse_args(argv)\n\n    graph_json = Path(args.out) / \"graph.json\"\n    if not graph_json.exists():\n        print(f\"[error] {graph_json} not found — run scan first\", file=sys.stderr)\n        sys.exit(1)\n\n    query = \" \".join(args.terms)\n    print(graph_search(graph_json, query, top_k=args.top_k))",
       "version": ""
     },
     {
@@ -466,8 +486,8 @@
       "kind": "function",
       "language": "python",
       "file": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/cli.py",
-      "line": 60,
-      "source_code": "def run() -> None:\n    ap = argparse.ArgumentParser(description=\"NoteBook_MOD dependency graph exporter\")\n    ap.add_argument(\"root\", nargs=\"?\", default=\".\", help=\"root directory to scan\")\n    ap.add_argument(\"--out\", default=\"graph_output\", help=\"output directory\")\n    ap.add_argument(\"--title\", default=\"NoteBook_MOD\", help=\"graph title\")\n    args = ap.parse_args()\n\n    root = Path(args.root).resolve()\n    out  = Path(args.out)\n\n    print(f\"Scanning {root} …\")\n    g = scan(root)\n    print(f\"  pre-resolve:  {g.stats()}\")\n    resolve_calls(g)\n    print(f\"  post-resolve: {g.stats()}\")\n    annotate_graph(g, root)\n\n    canvas_path = out / \"graph.canvas\"\n    html_path   = out / \"graph.html\"\n    json_path   = out / \"graph.json\"\n\n    ObsidianCanvasExporter().export(g, canvas_path)\n    HtmlPreviewExporter().export(g, html_path, title=args.title)\n\n    import json\n    import dataclasses\n    json_path.parent.mkdir(parents=True, exist_ok=True)\n    json_path.write_text(json.dumps({\n        \"nodes\": [dataclasses.asdict(n) for n in g.nodes],\n        \"edges\": [dataclasses.asdict(e) for e in g.edges],\n    }, indent=2, ensure_ascii=False))\n\n    print(f\"  → {canvas_path}  (Obsidian Canvas)\")\n    print(f\"  → {html_path}    (D3 HTML preview)\")\n    print(f\"  → {json_path}    (raw JSON)\")",
+      "line": 81,
+      "source_code": "def run() -> None:\n    # Dispatch: \"query\" as first arg → search mode; otherwise → scan+export (backward compat)\n    if len(sys.argv) > 1 and sys.argv[1] == \"query\":\n        _run_query(sys.argv[2:])\n        return\n\n    ap = argparse.ArgumentParser(description=\"NoteBook_MOD dependency graph exporter\")\n    ap.add_argument(\"root\", nargs=\"?\", default=\".\", help=\"root directory to scan\")\n    ap.add_argument(\"--out\", default=\"graph_output\", help=\"output directory\")\n    ap.add_argument(\"--title\", default=\"NoteBook_MOD\", help=\"graph title\")\n    args = ap.parse_args()\n\n    root = Path(args.root).resolve()\n    out  = Path(args.out)\n\n    print(f\"Scanning {root} …\")\n    g = scan(root)\n    print(f\"  pre-resolve:  {g.stats()}\")\n    resolve_calls(g)\n    print(f\"  post-resolve: {g.stats()}\")\n    annotate_graph(g, root)\n\n    canvas_path = out / \"graph.canvas\"\n    html_path   = out / \"graph.html\"\n    json_path   = out / \"graph.json\"\n\n    ObsidianCanvasExporter().export(g, canvas_path)\n    HtmlPreviewExporter().export(g, html_path, title=args.title)\n\n    import json\n    import dataclasses\n    json_path.parent.mkdir(parents=True, exist_ok=True)\n    json_path.write_text(json.dumps({\n        \"nodes\": [dataclasses.asdict(n) for n in g.nodes],\n        \"edges\": [dataclasses.asdict(e) for e in g.edges],\n    }, indent=2, ensure_ascii=False))\n\n    print(f\"  → {canvas_path}  (Obsidian Canvas)\")\n    print(f\"  → {html_path}    (D3 HTML preview)\")\n    print(f\"  → {json_path}    (raw JSON)\")",
       "version": ""
     },
     {
@@ -611,13 +631,23 @@
       "version": ""
     },
     {
+      "id": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/exporters/html_preview.py::_truncate",
+      "label": "_truncate",
+      "kind": "function",
+      "language": "python",
+      "file": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/exporters/html_preview.py",
+      "line": 301,
+      "source_code": "def _truncate(s: str, n: int) -> str:\n    return s[:n - 1] + \"…\" if len(s) > n else s",
+      "version": ""
+    },
+    {
       "id": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/exporters/html_preview.py::HtmlPreviewExporter",
       "label": "HtmlPreviewExporter",
       "kind": "class",
       "language": "python",
       "file": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/exporters/html_preview.py",
-      "line": 392,
-      "source_code": "class HtmlPreviewExporter:\n    def export(self, g: DependencyGraph, out_path: Path, title: str = \"NoteBook_MOD\") -> None:\n        out_path.parent.mkdir(parents=True, exist_ok=True)\n        graph_data = {\n            \"nodes\": [dataclasses.asdict(n) for n in g.nodes],\n            \"edges\": [dataclasses.asdict(e) for e in g.edges],\n        }\n        html = _TEMPLATE.format(\n            title=title,\n            graph_json=json.dumps(graph_data, ensure_ascii=False),\n        )\n        out_path.write_text(html, encoding=\"utf-8\")",
+      "line": 305,
+      "source_code": "class HtmlPreviewExporter:\n    def export(self, g: DependencyGraph, out_path: Path, title: str = \"NoteBook_MOD\") -> None:\n        out_path.parent.mkdir(parents=True, exist_ok=True)\n\n        # ── degree map (fan-in + fan-out) ──\n        degree: dict[str, int] = {}\n        for e in g.edges:\n            degree[e.source] = degree.get(e.source, 0) + 1\n            degree[e.target] = degree.get(e.target, 0) + 1\n\n        # ── vis.js nodes (display-only, no source_code) ──\n        vis_nodes: list[dict] = []\n        meta: dict[str, dict] = {}\n\n        for n in g.nodes:\n            cfg = _KIND.get(n.kind, _DEFAULT_KIND)\n            short = _truncate(n.label, 28)\n            ver_line = f\"\\n[{n.version}]\" if n.version else \"\"\n            tip_parts = [f\"{n.kind}: {n.label}\"]\n            if n.file:\n                tip_parts.append(Path(n.file).name + (f\":{n.line}\" if n.line else \"\"))\n            if n.version:\n                tip_parts.append(f\"ver: {n.version}\")\n\n            vis_nodes.append({\n                \"id\": n.id,\n                \"label\": short + ver_line,\n                \"title\": \"\\n\".join(tip_parts),\n                \"shape\": cfg[\"shape\"],\n                \"color\": {\n                    \"background\": cfg[\"bg\"],\n                    \"border\": cfg[\"bg\"],\n                    \"highlight\": {\"background\": cfg[\"bg\"], \"border\": \"#fff\"},\n                    \"hover\": {\"background\": cfg[\"bg\"], \"border\": \"#fff\"},\n                },\n                \"font\": {\"color\": cfg[\"fg\"], \"size\": 11},\n                \"level\": cfg[\"level\"],\n                \"value\": max(degree.get(n.id, 0), 1),\n                \"_kind\": n.kind,\n                \"_fullLabel\": n.label,\n            })\n\n            meta[n.id] = {\n                \"label\": n.label,\n                \"file\": n.file or \"\",\n                \"line\": n.line,\n                \"language\": n.language or \"\",\n                \"source_code\": n.source_code or \"\",\n                \"kind\": n.kind,\n            }\n\n        # ── vis.js edges ──\n        vis_edges: list[dict] = []\n        for e in g.edges:\n            color = _EDGE_COLOR.get(e.kind, \"#8e8e9399\")\n            vis_edges.append({\n                \"id\": f\"{e.source}|{e.target}|{e.kind}\",\n                \"from\": e.source,\n                \"to\": e.target,\n                \"color\": {\"color\": color, \"highlight\": color, \"hover\": color},\n                \"arrows\": {\"to\": {\"enabled\": True, \"scaleFactor\": 0.4}},\n                \"_kind\": e.kind,\n                \"hidden\": False,\n            })\n\n        # ── stats bar ──\n        counts: dict[str, int] = {}\n        for n in g.nodes:\n            counts[n.kind] = counts.get(n.kind, 0) + 1\n        versioned = sum(1 for n in g.nodes if n.kind == \"import\" and n.version)\n        stats = (\n            f\"{counts.get('file', 0)} 파일  \"\n            f\"{counts.get('function', 0)} 함수  \"\n            f\"{counts.get('class', 0)} 클래스  \"\n            f\"{counts.get('import', 0)} 외부의존성\"\n            + (f\" ({versioned}개 버전명시)\" if versioned else \"\")\n            + f\"  |  {len(g.edges)} 엣지\"\n        )\n\n        html = _TEMPLATE.format(\n            title=title,\n            stats=stats,\n            vis_cdn=_VIS_CDN,\n            hljs_css=_HLJS_CSS,\n            hljs_js=_HLJS_JS,\n            vis_nodes=json.dumps(vis_nodes, ensure_ascii=False),\n            vis_edges=json.dumps(vis_edges, ensure_ascii=False),\n            meta_json=json.dumps(meta, ensure_ascii=False),\n        )\n        out_path.write_text(html, encoding=\"utf-8\")",
       "version": ""
     },
     {
@@ -626,8 +656,8 @@
       "kind": "function",
       "language": "python",
       "file": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/exporters/html_preview.py",
-      "line": 393,
-      "source_code": "def export(self, g: DependencyGraph, out_path: Path, title: str = \"NoteBook_MOD\") -> None:\n        out_path.parent.mkdir(parents=True, exist_ok=True)\n        graph_data = {\n            \"nodes\": [dataclasses.asdict(n) for n in g.nodes],\n            \"edges\": [dataclasses.asdict(e) for e in g.edges],\n        }\n        html = _TEMPLATE.format(\n            title=title,\n            graph_json=json.dumps(graph_data, ensure_ascii=False),\n        )\n        out_path.write_text(html, encoding=\"utf-8\")",
+      "line": 306,
+      "source_code": "def export(self, g: DependencyGraph, out_path: Path, title: str = \"NoteBook_MOD\") -> None:\n        out_path.parent.mkdir(parents=True, exist_ok=True)\n\n        # ── degree map (fan-in + fan-out) ──\n        degree: dict[str, int] = {}\n        for e in g.edges:\n            degree[e.source] = degree.get(e.source, 0) + 1\n            degree[e.target] = degree.get(e.target, 0) + 1\n\n        # ── vis.js nodes (display-only, no source_code) ──\n        vis_nodes: list[dict] = []\n        meta: dict[str, dict] = {}\n\n        for n in g.nodes:\n            cfg = _KIND.get(n.kind, _DEFAULT_KIND)\n            short = _truncate(n.label, 28)\n            ver_line = f\"\\n[{n.version}]\" if n.version else \"\"\n            tip_parts = [f\"{n.kind}: {n.label}\"]\n            if n.file:\n                tip_parts.append(Path(n.file).name + (f\":{n.line}\" if n.line else \"\"))\n            if n.version:\n                tip_parts.append(f\"ver: {n.version}\")\n\n            vis_nodes.append({\n                \"id\": n.id,\n                \"label\": short + ver_line,\n                \"title\": \"\\n\".join(tip_parts),\n                \"shape\": cfg[\"shape\"],\n                \"color\": {\n                    \"background\": cfg[\"bg\"],\n                    \"border\": cfg[\"bg\"],\n                    \"highlight\": {\"background\": cfg[\"bg\"], \"border\": \"#fff\"},\n                    \"hover\": {\"background\": cfg[\"bg\"], \"border\": \"#fff\"},\n                },\n                \"font\": {\"color\": cfg[\"fg\"], \"size\": 11},\n                \"level\": cfg[\"level\"],\n                \"value\": max(degree.get(n.id, 0), 1),\n                \"_kind\": n.kind,\n                \"_fullLabel\": n.label,\n            })\n\n            meta[n.id] = {\n                \"label\": n.label,\n                \"file\": n.file or \"\",\n                \"line\": n.line,\n                \"language\": n.language or \"\",\n                \"source_code\": n.source_code or \"\",\n                \"kind\": n.kind,\n            }\n\n        # ── vis.js edges ──\n        vis_edges: list[dict] = []\n        for e in g.edges:\n            color = _EDGE_COLOR.get(e.kind, \"#8e8e9399\")\n            vis_edges.append({\n                \"id\": f\"{e.source}|{e.target}|{e.kind}\",\n                \"from\": e.source,\n                \"to\": e.target,\n                \"color\": {\"color\": color, \"highlight\": color, \"hover\": color},\n                \"arrows\": {\"to\": {\"enabled\": True, \"scaleFactor\": 0.4}},\n                \"_kind\": e.kind,\n                \"hidden\": False,\n            })\n\n        # ── stats bar ──\n        counts: dict[str, int] = {}\n        for n in g.nodes:\n            counts[n.kind] = counts.get(n.kind, 0) + 1\n        versioned = sum(1 for n in g.nodes if n.kind == \"import\" and n.version)\n        stats = (\n            f\"{counts.get('file', 0)} 파일  \"\n            f\"{counts.get('function', 0)} 함수  \"\n            f\"{counts.get('class', 0)} 클래스  \"\n            f\"{counts.get('import', 0)} 외부의존성\"\n            + (f\" ({versioned}개 버전명시)\" if versioned else \"\")\n            + f\"  |  {len(g.edges)} 엣지\"\n        )\n\n        html = _TEMPLATE.format(\n            title=title,\n            stats=stats,\n            vis_cdn=_VIS_CDN,\n            hljs_css=_HLJS_CSS,\n            hljs_js=_HLJS_JS,\n            vis_nodes=json.dumps(vis_nodes, ensure_ascii=False),\n            vis_edges=json.dumps(vis_edges, ensure_ascii=False),\n            meta_json=json.dumps(meta, ensure_ascii=False),\n        )\n        out_path.write_text(html, encoding=\"utf-8\")",
       "version": ""
     },
     {
@@ -908,6 +938,46 @@
       "file": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/parsers/python_parser.py",
       "line": 62,
       "source_code": "def _call_name(node: ast.Call) -> str | None:\n        if isinstance(node.func, ast.Name):\n            return node.func.id\n        if isinstance(node.func, ast.Attribute):\n            return node.func.attr\n        return None",
+      "version": ""
+    },
+    {
+      "id": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py",
+      "label": "query.py",
+      "kind": "file",
+      "language": "python",
+      "file": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py",
+      "line": 0,
+      "source_code": "",
+      "version": ""
+    },
+    {
+      "id": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py::_terms",
+      "label": "_terms",
+      "kind": "function",
+      "language": "python",
+      "file": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py",
+      "line": 14,
+      "source_code": "def _terms(text: str) -> set[str]:\n    \"\"\"소문자 단어 집합. 1-2글자 단어 제거.\"\"\"\n    return {t for t in re.split(r\"[\\W_]+\", text.lower()) if len(t) >= 3}",
+      "version": ""
+    },
+    {
+      "id": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py::_score",
+      "label": "_score",
+      "kind": "function",
+      "language": "python",
+      "file": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py",
+      "line": 19,
+      "source_code": "def _score(node: dict, query_terms: set[str]) -> float:\n    label_hits = len(query_terms & _terms(node.get(\"label\", \"\")))\n    file_hits  = len(query_terms & _terms(Path(node.get(\"file\", \"\")).stem))\n    kind_hit   = 1.0 if node.get(\"kind\", \"\") in query_terms else 0.0\n    return label_hits * 3.0 + file_hits * 1.5 + kind_hit * 1.0",
+      "version": ""
+    },
+    {
+      "id": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py::search",
+      "label": "search",
+      "kind": "function",
+      "language": "python",
+      "file": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py",
+      "line": 26,
+      "source_code": "def search(graph_json: Path, query: str, top_k: int = 20) -> str:\n    \"\"\"Return compact text representation of the top-k relevant nodes + their edges.\"\"\"\n    data = json.loads(graph_json.read_text())\n    nodes: list[dict] = data[\"nodes\"]\n    edges: list[dict] = data[\"edges\"]\n\n    q_terms = _terms(query)\n\n    # 1. Score all nodes\n    scored = sorted(\n        [(n, _score(n, q_terms)) for n in nodes],\n        key=lambda x: -x[1],\n    )\n    top_nodes = [n for n, s in scored if s > 0][:top_k]\n    top_ids   = {n[\"id\"] for n in top_nodes}\n\n    # 2. Collect edges that touch top nodes; gather 1-hop neighbors\n    neighbor_ids: set[str] = set()\n    hit_edges: list[dict] = []\n    for e in edges:\n        src_in = e[\"source\"] in top_ids\n        tgt_in = e[\"target\"] in top_ids\n        if src_in or tgt_in:\n            hit_edges.append(e)\n            if src_in:\n                neighbor_ids.add(e[\"target\"])\n            if tgt_in:\n                neighbor_ids.add(e[\"source\"])\n\n    # 3. Add neighbors (cap at top_k // 2, avoid duplicates)\n    extra = [n for n in nodes if n[\"id\"] in (neighbor_ids - top_ids)][: top_k // 2]\n    all_nodes = top_nodes + extra\n    all_ids   = {n[\"id\"] for n in all_nodes}\n\n    # 4. Filter edges to only those fully within all_nodes\n    final_edges = [e for e in hit_edges if e[\"source\"] in all_ids and e[\"target\"] in all_ids]\n\n    # 5. Build label lookup for compact edge display\n    id_to_label = {n[\"id\"]: n[\"label\"] for n in all_nodes}\n\n    # ── Format output ──────────────────────────────────────────────\n    lines: list[str] = []\n    lines.append(f'[query: \"{query}\"] → {len(all_nodes)} nodes, {len(final_edges)} edges')\n    lines.append(f'(full graph: {len(nodes)} nodes, {len(edges)} edges)\\n')\n\n    lines.append(\"NODES:\")\n    for n in all_nodes:\n        ver      = f' [{n[\"version\"]}]' if n.get(\"version\") else \"\"\n        line_no  = f':{n[\"line\"]}' if n.get(\"line\") else \"\"\n        file_short = Path(n.get(\"file\", \"\")).name\n        lines.append(f'  {n[\"kind\"]:<12} {n[\"label\"]:<32} {file_short}{line_no}{ver}')\n\n    if final_edges:\n        lines.append(\"\\nEDGES:\")\n        by_kind: dict[str, list[dict]] = {}\n        for e in final_edges:\n            by_kind.setdefault(e[\"kind\"], []).append(e)\n        for kind in (\"contains\", \"imports\", \"calls\", \"uses\"):\n            for e in by_kind.get(kind, [])[:30]:\n                src = id_to_label.get(e[\"source\"], e[\"source\"].split(\"::\")[-1])\n                tgt = id_to_label.get(e[\"target\"], e[\"target\"].split(\"::\")[-1])\n                lines.append(f'  {src} → {tgt}  [{kind}]')\n\n    return \"\\n\".join(lines)",
       "version": ""
     },
     {
@@ -2869,6 +2939,11 @@
     },
     {
       "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/cli.py",
+      "target": "import::search",
+      "kind": "imports"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/cli.py",
       "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/cli.py::resolve_calls",
       "kind": "contains"
     },
@@ -2929,6 +3004,11 @@
     },
     {
       "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/cli.py",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/cli.py::_run_query",
+      "kind": "contains"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/cli.py",
       "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/cli.py::run",
       "kind": "contains"
     },
@@ -2965,6 +3045,11 @@
     {
       "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/cli.py::run",
       "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/exporters/obsidian_canvas.py::export",
+      "kind": "calls"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/cli.py::run",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/cli.py::_run_query",
       "kind": "calls"
     },
     {
@@ -3094,6 +3179,11 @@
     },
     {
       "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/exporters/html_preview.py",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/exporters/html_preview.py::_truncate",
+      "kind": "contains"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/exporters/html_preview.py",
       "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/exporters/html_preview.py::HtmlPreviewExporter",
       "kind": "contains"
     },
@@ -3101,6 +3191,61 @@
       "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/exporters/html_preview.py",
       "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/exporters/html_preview.py::export",
       "kind": "contains"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/exporters/html_preview.py::export",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/handlers.py::get",
+      "kind": "calls"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/exporters/html_preview.py::export",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/exporters/html_preview.py::_truncate",
+      "kind": "calls"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/exporters/html_preview.py::export",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/handlers.py::get",
+      "kind": "calls"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/exporters/html_preview.py::export",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/handlers.py::get",
+      "kind": "calls"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/exporters/html_preview.py::export",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/handlers.py::get",
+      "kind": "calls"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/exporters/html_preview.py::export",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/handlers.py::get",
+      "kind": "calls"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/exporters/html_preview.py::export",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/handlers.py::get",
+      "kind": "calls"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/exporters/html_preview.py::export",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/handlers.py::get",
+      "kind": "calls"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/exporters/html_preview.py::export",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/handlers.py::get",
+      "kind": "calls"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/exporters/html_preview.py::export",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/handlers.py::get",
+      "kind": "calls"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/exporters/html_preview.py::export",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/handlers.py::get",
+      "kind": "calls"
     },
     {
       "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/exporters/obsidian_canvas.py",
@@ -3733,6 +3878,101 @@
       "kind": "contains"
     },
     {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py",
+      "target": "import::json",
+      "kind": "imports"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py",
+      "target": "import::re",
+      "kind": "imports"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py",
+      "target": "import::Path",
+      "kind": "imports"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py::_terms",
+      "kind": "contains"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py::_score",
+      "kind": "contains"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py::_score",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py::_terms",
+      "kind": "calls"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py::_score",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py::_terms",
+      "kind": "calls"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py::_score",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/handlers.py::get",
+      "kind": "calls"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py::_score",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/handlers.py::get",
+      "kind": "calls"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py::_score",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/handlers.py::get",
+      "kind": "calls"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py::search",
+      "kind": "contains"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py::search",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py::_terms",
+      "kind": "calls"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py::search",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/handlers.py::get",
+      "kind": "calls"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py::search",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/handlers.py::get",
+      "kind": "calls"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py::search",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py::_score",
+      "kind": "calls"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py::search",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/handlers.py::get",
+      "kind": "calls"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py::search",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/handlers.py::get",
+      "kind": "calls"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py::search",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/handlers.py::get",
+      "kind": "calls"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py::search",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/handlers.py::get",
+      "kind": "calls"
+    },
+    {
       "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/version_resolver.py",
       "target": "import::json",
       "kind": "imports"
@@ -3948,9 +4188,24 @@
       "kind": "contains"
     },
     {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/handlers.py::_infer_dir",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py::search",
+      "kind": "calls"
+    },
+    {
       "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/handlers.py",
       "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/handlers.py::_cluster_filename",
       "kind": "contains"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/handlers.py::_cluster_filename",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py::search",
+      "kind": "calls"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/handlers.py::_cluster_filename",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py::search",
+      "kind": "calls"
     },
     {
       "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/handlers.py",
@@ -5121,6 +5376,11 @@
       "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/llm_classifier.py",
       "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/llm_classifier.py::_extract_json",
       "kind": "contains"
+    },
+    {
+      "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/llm_classifier.py::_extract_json",
+      "target": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/graph_exporter/query.py::search",
+      "kind": "calls"
     },
     {
       "source": "/private/tmp/claude-501/-Users-xox/d75643a0-9aa1-4c43-a6e4-008dc35a1319/scratchpad/NoteBook_MOD/extension/notebook_mod/llm_classifier.py",
