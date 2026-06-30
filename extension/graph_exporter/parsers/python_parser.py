@@ -24,9 +24,10 @@ class PythonParser(BaseParser):
         for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 nid = f"{file_id}::{node.name}"
+                func_src = ast.get_source_segment(src, node) or ""
                 g.add_node(GraphNode(id=nid, label=node.name, kind="function",
                                      language="python", file=str(path),
-                                     line=node.lineno))
+                                     line=node.lineno, source_code=func_src))
                 g.add_edge(GraphEdge(source=file_id, target=nid, kind="contains"))
                 # calls within the function body
                 for child in ast.walk(node):
@@ -39,9 +40,10 @@ class PythonParser(BaseParser):
 
             elif isinstance(node, ast.ClassDef):
                 cid = f"{file_id}::{node.name}"
+                cls_src = ast.get_source_segment(src, node) or ""
                 g.add_node(GraphNode(id=cid, label=node.name, kind="class",
                                      language="python", file=str(path),
-                                     line=node.lineno))
+                                     line=node.lineno, source_code=cls_src))
                 g.add_edge(GraphEdge(source=file_id, target=cid, kind="contains"))
 
             elif isinstance(node, (ast.Import, ast.ImportFrom)):

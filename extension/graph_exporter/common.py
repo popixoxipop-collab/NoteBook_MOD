@@ -11,6 +11,7 @@ class GraphNode:
     language: str         # python | javascript | typescript | java | c | cpp
     file: str
     line: int = 0
+    source_code: str = ""  # D2: embedded for click-to-view; WHY: self-contained HTML (no server); COST: HTML ~5-10× larger; EXIT: replace with fetch("/api/src?id=...") call
 
 
 @dataclass
