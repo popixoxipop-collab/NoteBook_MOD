@@ -14,6 +14,17 @@ import dataclasses
 from pathlib import Path
 from ..common import DependencyGraph
 
+
+def _safe_json(data) -> str:
+    """JSON safe for embedding inside <script> tags.
+
+    json.dumps leaves </script> intact, which the HTML parser treats as closing
+    the <script> block. Any source_code containing </script> (e.g. html_preview.py
+    itself) silently truncates the script, so `net` is never defined.
+    Escaping `</' to `<\/' is valid JSON (\/  == /) and breaks no parsers.
+    """
+    return json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
+
 _VIS_CDN  = "https://unpkg.com/vis-network@9.1.6/standalone/umd/vis-network.min.js"
 _HLJS_CSS = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css"
 _HLJS_JS  = "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"
@@ -196,7 +207,7 @@ const net = new vis.Network(
       hierarchical: {{
         enabled: true,
         direction: 'UD',
-        sortMethod: 'directed',
+        sortMethod: 'hubsize',
         levelSeparation: 170,
         nodeSpacing: 130,
         treeSpacing: 210,
@@ -387,8 +398,8 @@ class HtmlPreviewExporter:
             vis_cdn=_VIS_CDN,
             hljs_css=_HLJS_CSS,
             hljs_js=_HLJS_JS,
-            vis_nodes=json.dumps(vis_nodes, ensure_ascii=False),
-            vis_edges=json.dumps(vis_edges, ensure_ascii=False),
-            meta_json=json.dumps(meta, ensure_ascii=False),
+            vis_nodes=_safe_json(vis_nodes),
+            vis_edges=_safe_json(vis_edges),
+            meta_json=_safe_json(meta),
         )
         out_path.write_text(html, encoding="utf-8")
