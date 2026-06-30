@@ -1,13 +1,41 @@
-"""CLI entry point: scan a directory and export both Obsidian Canvas + HTML."""
+"""CLI entry point: scan a directory and export both Obsidian Canvas + HTML.
+
+D1: post-scan call resolution
+  WHY: Python parser emits calls edges as "{file}::{name}" (intra-file only).
+       Cross-file calls miss unless we do a second pass mapping by symbol name.
+  COST: Ambiguous names (multiple files define same func) get fan-out edges.
+  EXIT: swap for a proper import-graph resolver that tracks `from X import Y` paths.
+"""
 import argparse
 import sys
 from pathlib import Path
-from .common import DependencyGraph
+from .common import DependencyGraph, GraphEdge
 from .parsers import PythonParser, JsParser, JavaParser, CParser
 from .exporters import ObsidianCanvasExporter, HtmlPreviewExporter
 
 PARSERS = [PythonParser(), JsParser(), JavaParser(), CParser()]
 SKIP_DIRS = {".git", "__pycache__", "node_modules", ".venv", "dist", "build", ".tox"}
+
+
+def resolve_calls(g: DependencyGraph) -> None:
+    """Second pass: fix cross-file call edges that point to non-existent nodes."""
+    node_ids = {n.id for n in g.nodes}
+    name_to_ids: dict[str, list[str]] = {}
+    for n in g.nodes:
+        if n.kind in ("function", "class"):
+            name_to_ids.setdefault(n.label, []).append(n.id)
+
+    resolved: list[GraphEdge] = []
+    for e in g.edges:
+        if e.kind == "calls" and e.target not in node_ids:
+            call_name = e.target.split("::")[-1] if "::" in e.target else e.target
+            matches = name_to_ids.get(call_name, [])
+            for mid in matches:
+                if mid != e.source:  # skip self-loop
+                    resolved.append(GraphEdge(source=e.source, target=mid, kind="calls"))
+        else:
+            resolved.append(e)
+    g.edges = resolved
 
 
 def scan(root: Path) -> DependencyGraph:
@@ -40,7 +68,9 @@ def run() -> None:
 
     print(f"Scanning {root} …")
     g = scan(root)
-    print(f"  {g.stats()}")
+    print(f"  pre-resolve:  {g.stats()}")
+    resolve_calls(g)
+    print(f"  post-resolve: {g.stats()}")
 
     canvas_path = out / "graph.canvas"
     html_path   = out / "graph.html"
